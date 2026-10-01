@@ -1,0 +1,30 @@
+{
+  "name": "spellbook-battler",
+  "version": "1.0.0",
+  "description": "Spellbook Battler prototype",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "build:single": "vite build --mode single",
+    "preview": "vite preview --host",
+    "test": "node --test tests/*.test.js",
+    "build:fragment": "vite build --mode single && node scripts/artifact.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZulbiaBamiyeh/duels.git"
+  },
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ZulbiaBamiyeh/duels/issues"
+  },
+  "homepage": "https://github.com/ZulbiaBamiyeh/duels#readme",
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.1",
+    "vite-plugin-singlefile": "^2.3.3"
+  },
+  "type": "module"
+}

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#15121d" />
+    <title>Spellbook Battler</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="top">
+        <div class="brand">
+          <img class="brand-mark" id="brandMark" alt="" />
+          <div>
+            <h1>Spellbook Battler</h1>
+            <p>Training grounds &middot; Fire Mage</p>
+          </div>
+        </div>
+        <div class="clock">
+          <span id="clock" class="tnum">0:00.0</span>
+          <span id="dpsTop" class="tnum">0.0 dps</span>
+        </div>
+      </header>
+
+      <section class="stage" id="stage" aria-label="Battle stage">
+        <canvas id="gl"></canvas>
+        <div class="stage-tint" aria-hidden="true"></div>
+        <div class="enemy-strip" id="enemyStrip"></div>
+        <div class="overlay"></div>
+        <div class="stage-ctrl">
+          <button id="btnPlay" class="ctl ctl-play" aria-pressed="true"><i class="ico-play" aria-hidden="true"></i><span>Pause</span></button>
+          <div class="ctl-right">
+            <div class="seg seg-dark" id="speedSeg" role="group" aria-label="Speed">
+              <button data-speed="1">1&times;</button><button data-speed="2">2&times;</button><button data-speed="4">4&times;</button>
+            </div>
+            <button id="btnReset" class="ctl">Restart</button>
+          </div>
+        </div>
+        <div class="defeat" id="defeat" hidden>
+          <strong>Fire Mage fell</strong>
+          <span class="defeat-sub"></span>
+          <button id="btnRetry" class="ctl ctl-play">Try again</button>
+        </div>
+      </section>
+
+      <section class="hero-card" id="heroCard" aria-label="Your unit"></section>
+
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="book">Spellbook</button>
+        <button role="tab" data-tab="dummies">Dummies</button>
+        <button role="tab" data-tab="report">Report</button>
+      </nav>
+
+      <main class="panel">
+        <section data-tab="book">
+          <div class="sec-head">
+            <div>
+              <h2>Spellbook</h2>
+              <p>Read top to bottom. The first line whose condition fits and whose spell is off cooldown gets cast. Edits apply mid-fight.</p>
+            </div>
+            <button class="btn-ghost" id="presetBtn">Presets</button>
+          </div>
+          <ol class="lines" id="lines"></ol>
+          <div class="book-foot">
+            <button class="btn-add" id="addLine">+ Add line</button>
+            <span id="lineCount" class="tnum"></span>
+          </div>
+          <p class="fallback">If no line fits: <b>Ember Flick</b> &rarr; frontmost enemy, 3 damage.</p>
+        </section>
+
+        <section data-tab="dummies" hidden>
+          <div class="sec-head">
+            <div>
+              <h2>Training dummies</h2>
+              <p>Dummies stand back up 2s after going down. Changing anything here restarts the fight.</p>
+            </div>
+          </div>
+          <div id="dummyForm"></div>
+        </section>
+
+        <section data-tab="report" hidden>
+          <div class="sec-head">
+            <div>
+              <h2>Report</h2>
+              <p>Damage dealt to dummies, counted live.</p>
+            </div>
+          </div>
+          <div class="kpis" id="kpis"></div>
+          <h3 class="sub">Damage by source</h3>
+          <div class="sources" id="sources"></div>
+          <h3 class="sub">Combat log</h3>
+          <ol class="log" id="log"></ol>
+          <p class="seed" id="seed"></p>
+        </section>
+      </main>
+    </div>
+
+    <div class="sheet-wrap" id="sheet" hidden>
+      <div class="sheet-backdrop"></div>
+      <div class="sheet" role="dialog" aria-modal="true">
+        <header><h2></h2><button class="sheet-done">Done</button></header>
+        <div class="sheet-body"></div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
