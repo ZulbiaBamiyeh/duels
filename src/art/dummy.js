@@ -3,8 +3,25 @@
 
 import { Raster, shade3 } from './raster.js';
 
-export const DUMMY_W = 40;
-export const DUMMY_H = 56;
+const S = 2; // drawn in 40x56 design units, rasterised at 2x for the hi-res party
+export const DUMMY_W = 40 * S;
+export const DUMMY_H = 56 * S;
+
+// Proxy that scales design coordinates onto a 2x raster, keeping 1px outlines and shading.
+function scaled(r) {
+  const k = (v) => v * S;
+  const wrapC = (color) => (typeof color === 'function' ? (x, y, ...rest) => color(x / S, y / S, ...rest) : color);
+  return {
+    raw: r,
+    poly: (pts, color) => (r.poly(pts.map(([x, y]) => [k(x), k(y)]), typeof color === 'function' ? (nx, ny, x, y) => color(nx, ny, x / S, y / S) : color), r),
+    rect: (x, y, w, h, color) => (r.rect(k(x), k(y), k(w), k(h), typeof color === 'function' ? (i, j) => color(Math.floor(i / S), Math.floor(j / S)) : color), r),
+    ellipse: (cx, cy, rx, ry, color) => (r.ellipse(k(cx), k(cy), k(rx), k(ry), typeof color === 'function' ? (nx, ny, x, y) => color(nx, ny, x / S, y / S) : color), r),
+    capsule: (x1, y1, x2, y2, rad, color) => (r.capsule(k(x1), k(y1), k(x2), k(y2), k(rad), wrapC(color)), r),
+    set: (x, y, c) => { for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) r.set(x * S + i, y * S + j, c); },
+    recolor: (test, color) => (r.recolor((x, y, c) => test(Math.floor(x / S), Math.floor(y / S), c), typeof color === 'function' ? (x, y, c) => color(Math.floor(x / S), Math.floor(y / S), c) : color), r),
+    outline: (c) => r.outline(c),
+  };
+}
 
 const OUT = '#1b1526';
 const WOOD = { light: '#9c7a58', mid: '#7a5b40', dark: '#563e2c' };
@@ -21,21 +38,22 @@ export const DUMMY_VARIANTS = [
 export function drawDummy(variant = 0, { hit = false } = {}) {
   const SACK = DUMMY_VARIANTS[variant];
   const out = new Raster(DUMMY_W, DUMMY_H);
+  const L = () => scaled(out.layer());
 
   // stand
-  const stand = out.layer();
+  const stand = L();
   stand.poly([[11, 51], [29, 51], [31.5, 55], [8.5, 55]], (nx, ny) => (ny < -0.3 ? WOOD.light : WOOD.mid));
   stand.recolor((x, y) => y === 54 && x % 4 === 1, WOOD.dark);
   stand.outline(OUT);
 
   // post
-  const post = out.layer();
+  const post = L();
   post.rect(18, 30, 5, 22, (x) => (x === 18 ? WOOD.dark : x === 21 ? WOOD.light : WOOD.mid));
   post.recolor((x, y) => x === 20 && y % 5 === 0, WOOD.dark);
   post.outline(OUT);
 
   // arm beam and straw tufts
-  const beam = out.layer();
+  const beam = L();
   beam.capsule(6.5, 23.5, 33.5, 23.5, 1.6, (x, y) => (y < 23 ? WOOD.light : WOOD.mid));
   for (const [x, y] of [[3, 21], [4, 25], [2, 23], [36, 21], [35, 25], [37, 23]]) {
     beam.capsule(x + 0.5, y + 0.5, x < 20 ? 6.5 : 33.5, 23.5, 0.7, STRAW.mid);
@@ -44,7 +62,7 @@ export function drawDummy(variant = 0, { hit = false } = {}) {
   beam.outline(OUT);
 
   // body sack
-  const sack = out.layer();
+  const sack = L();
   sack.ellipse(20, 32, 8.6, 10.6, shade3([SACK.light, SACK.mid, SACK.dark], 0.3, -0.35));
   sack.recolor((x, y) => y === 25 || y === 39, (x) => (x % 2 ? ROPE.light : ROPE.mid));
   // painted target
@@ -56,7 +74,7 @@ export function drawDummy(variant = 0, { hit = false } = {}) {
   sack.outline(OUT);
 
   // head
-  const head = out.layer();
+  const head = L();
   for (const [x, y] of [[17, 5], [19, 4], [21, 5], [23, 6], [15, 7]]) head.capsule(x + 0.5, y + 0.5, 20, 9, 0.7, STRAW.mid);
   head.set(19, 4, STRAW.light);
   head.set(21, 5, STRAW.light);
@@ -74,6 +92,6 @@ export function drawDummy(variant = 0, { hit = false } = {}) {
   for (let x = 17; x <= 23; x++) head.set(x, 16, x % 2 ? OUT : SACK.dark);
   head.outline(OUT);
 
-  out.over(stand).over(post).over(beam).over(sack).over(head);
+  for (const l of [stand, post, beam, sack, head]) out.over(l.raw);
   return out;
 }

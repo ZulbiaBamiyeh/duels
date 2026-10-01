@@ -1,19 +1,19 @@
 import './style.css';
 import { Battle } from './sim/battle.js';
 import { TPS } from './sim/data.js';
-import { mageDef, dummyDefs, defaultDummies, clonePreset } from './sim/party.js';
+import { partyDefs, defaultParty, dummyDefs, defaultDummies } from './sim/party.js';
 import { Stage } from './render/stage.js';
 import { UI } from './ui/ui.js';
 
-const STORE = 'sb.proto.v1';
+const STORE = 'sb.proto.v2';
 
-function load(seed) {
-  const fresh = { book: clonePreset('cashout'), dummies: defaultDummies(), seed: 7 };
-  const from = seed || (() => {
+function load(snapshot) {
+  const fresh = { party: defaultParty(), dummies: defaultDummies(), seed: 7 };
+  const from = snapshot || (() => {
     try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch { return null; }
   })();
-  if (!from || !Array.isArray(from.book) || !from.dummies) return fresh;
-  return { ...fresh, ...from };
+  const ok = from && from.party && Array.isArray(from.party.formation) && from.party.formation.length === 3 && from.party.books && from.dummies;
+  return ok ? { ...fresh, ...from } : fresh;
 }
 
 function save(state) {
@@ -29,21 +29,24 @@ function start(hotData) {
   let paused = false;
 
   const ui = new UI(state, {
-    onBookChange() {
-      // spellbook edits apply live: the mage reads it on her next action
-      const mage = battle.units.find((u) => u.side === 'ally');
-      mage.spellbook = state.book;
-      mage.def.spellbook = state.book;
+    onBookChange(kind) {
+      // spellbook edits apply live: she reads it on her next action
+      const u = battle.units.find((x) => x.side === 'ally' && x.kind === kind);
+      if (u) { u.spellbook = state.party.books[kind]; u.def.spellbook = u.spellbook; u.waiting = false; }
       save(state);
     },
-    onDummyChange() {
+    onSetupChange() {
       save(state);
       reset();
     },
+    onSelect(id) {
+      stage.select(id);
+    },
   });
+  stage.onSelect = (id) => ui.select(id);
 
   function reset() {
-    battle = new Battle({ seed: state.seed, party: [mageDef(state.book)], enemies: dummyDefs(state.dummies) });
+    battle = new Battle({ seed: state.seed, party: partyDefs(state.party), enemies: dummyDefs(state.dummies) });
     acc = 0;
     stage.bind(battle);
     ui.bind(battle);
@@ -63,14 +66,12 @@ function start(hotData) {
     if (battle.over) reset();
     setPaused(!paused);
   });
-  document.getElementById('btnReset').addEventListener('click', () => {
-    reset();
-    setPaused(false);
-  });
-  document.getElementById('btnRetry').addEventListener('click', () => {
-    reset();
-    setPaused(false);
-  });
+  for (const id of ['btnReset', 'btnRetry']) {
+    document.getElementById(id).addEventListener('click', () => {
+      reset();
+      setPaused(false);
+    });
+  }
   const speedBtns = [...document.querySelectorAll('#speedSeg button')];
   const setSpeed = (s) => {
     speed = s;

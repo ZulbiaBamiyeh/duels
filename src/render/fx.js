@@ -17,6 +17,11 @@ export const RAMPS = {
   heat: ['#6a2236', '#c43a55', '#ff5a6e', '#ffb0b9'],
   dust: ['#3d354d', '#6a6080', '#8f86a3'],
   mote: ['#3a3350', '#7d6f9a', '#d8c7a8', '#fff0c8'],
+  holy: ['#8a6a2a', '#e0b84f', '#fff0b3', '#ffffff'],
+  heal: ['#2a6a4a', '#5fd08a', '#b8ffd0', '#ffffff'],
+  poison: ['#2a3a1a', '#5a8a2a', '#9bd45a', '#d8ff9a'],
+  taunt: ['#6a1a1a', '#c43a3a', '#ff6b5a', '#ffc2b0'],
+  empower: ['#6a2a4a', '#d06a9a', '#ff9fd0', '#ffe6f2'],
 };
 const rampCache = {};
 function ramp(name) {
@@ -189,9 +194,31 @@ export class FX {
     }
   }
 
+  // Column of light falling onto a point.
+  pillar(pos, { ramp = 'holy', height = 140, n = 60, width = 6, life = 0.6 } = {}) {
+    for (let i = 0; i < n; i++) {
+      this.glow.spawn({ x: pos.x + rand(-width, width), y: rand(0, height), z: pos.z + 4, vy: rand(-80, -20), life: rand(0.3, 1) * life, size: Math.random() < 0.3 ? 2 : 1, ramp, shrink: true });
+    }
+  }
+
+  // Dotted line of particles between two points (links, chains).
+  line(a, b, { ramp = 'holy', n = 24, life = 0.5 } = {}) {
+    for (let i = 0; i <= n; i++) {
+      const k = i / n;
+      this.glow.spawn({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k + Math.sin(k * Math.PI) * 6, z: a.z + 6, vy: rand(-2, 2), life: life * rand(0.6, 1), size: i % 3 === 0 ? 2 : 1, ramp, shrink: true });
+    }
+  }
+
+  // Sparkles rising through a box (heals, buffs).
+  rise(pos, w, h, n, ramp = 'heal') {
+    for (let i = 0; i < n; i++) {
+      this.glow.spawn({ x: pos.x + rand(-w / 2, w / 2), y: pos.y + rand(0, h), z: pos.z + 4, vx: rand(-3, 3), vy: rand(10, 30), life: rand(0.5, 1), size: Math.random() < 0.25 ? 2 : 1, ramp, shrink: true, wobble: 5, seed: Math.random() * 9 });
+    }
+  }
+
   // Projectile from a to b over dur seconds (sim time). style: bolt | lob | spark | ember | beam | pass | spray
   projectile(a, b, dur, style = 'bolt') {
-    const arc = { bolt: 6, lob: 26, spark: 4, ember: 3, beam: 0, pass: 30, spray: 18 + Math.random() * 14, wave: 0 }[style] ?? 6;
+    const arc = { bolt: 6, lob: 26, spark: 4, ember: 3, beam: 0, pass: 30, spray: 18 + Math.random() * 14, wave: 0, holy: 4, spit: 30, poison: 22 }[style] ?? 6;
     this.projectiles.push({ a: a.clone(), b: b.clone(), t: 0, dur: Math.max(0.05, dur), style, arc, last: a.clone() });
   }
 
@@ -224,6 +251,13 @@ export class FX {
         case 'beam':
           this.glow.spawn({ x: q.x, y: q.y + rand(-1, 1), z: q.z + 4, life: 0.18, size: 2, ramp: 'hot', shrink: true });
           break;
+        case 'holy':
+          if (Math.random() < 0.7) this.glow.spawn({ x: q.x + rand(-1, 1), y: q.y + rand(-1, 1), z: q.z + 4, vy: rand(-3, 3), life: 0.25, size: 1, ramp: 'holy', shrink: true });
+          break;
+        case 'spit':
+        case 'poison':
+          if (Math.random() < 0.6) this.solid.spawn({ x: q.x, y: q.y, z: q.z + 4, vy: rand(-6, 0), life: 0.3, size: Math.random() < 0.3 ? 2 : 1, ramp: 'poison', g: 40 });
+          break;
         case 'spark':
         case 'ember':
           if (Math.random() < 0.6) this.glow.spawn({ x: q.x, y: q.y, z: q.z + 4, vy: rand(-4, 4), life: 0.2, size: 1, ramp: 'ember' });
@@ -236,10 +270,11 @@ export class FX {
       }
     }
     // the head of the projectile
-    const head = { bolt: 4, lob: 3, pass: 3, spray: 2, spark: 2, ember: 2, beam: 3, wave: 0 }[p.style] ?? 3;
+    const head = { bolt: 4, lob: 3, pass: 3, spray: 2, spark: 2, ember: 2, beam: 3, wave: 0, holy: 3, spit: 3, poison: 3 }[p.style] ?? 3;
+    const headRamp = { holy: 'holy', spit: 'poison', poison: 'poison' }[p.style];
     if (head) {
-      this.glow.spawn({ x: pos.x, y: pos.y, z: pos.z + 5, life: dt * 1.5 + 0.001, size: head + 2, ramp: 'fire', alpha: 0.55 });
-      this.glow.spawn({ x: pos.x, y: pos.y, z: pos.z + 6, life: dt * 1.5 + 0.001, size: head, ramp: 'hot' });
+      this.glow.spawn({ x: pos.x, y: pos.y, z: pos.z + 5, life: dt * 1.5 + 0.001, size: head + 2, ramp: headRamp || 'fire', alpha: 0.55 });
+      this.glow.spawn({ x: pos.x, y: pos.y, z: pos.z + 6, life: dt * 1.5 + 0.001, size: head, ramp: headRamp || 'hot' });
     }
   }
 

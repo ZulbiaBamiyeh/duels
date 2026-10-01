@@ -86,6 +86,67 @@ export class Raster {
     return this.shape(test, color, [Math.min(x1, x2) - r - 1, Math.min(y1, y2) - r - 1, Math.max(x1, x2) + r + 1, Math.max(y1, y2) + r + 1]);
   }
 
+  // Rotated ellipse; ang in radians. color fn receives (nx, ny) in the ellipse's own frame.
+  ellipseR(cx, cy, rx, ry, ang, color) {
+    const c = Math.cos(ang), s = Math.sin(ang);
+    const R = Math.max(rx, ry) + 1;
+    const local = (x, y) => [((x - cx) * c + (y - cy) * s) / rx, (-(x - cx) * s + (y - cy) * c) / ry];
+    const fn = typeof color === 'function' ? (x, y) => color(...local(x, y), x, y) : color;
+    return this.shape((x, y) => { const [u, v] = local(x, y); return u * u + v * v <= 1; }, fn, [cx - R, cy - R, cx + R, cy + R]);
+  }
+
+  // Thick cubic bezier stroke. r(t) gives the radius along the curve.
+  tube(p0, p1, p2, p3, r, color, steps = 40) {
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps, u = 1 - t;
+      const x = u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0];
+      const y = u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1];
+      const rr = typeof r === 'function' ? r(t) : r;
+      this.ellipse(x, y, rr, rr, typeof color === 'function' ? (nx, ny, px, py) => color(px, py, t) : color);
+    }
+    return this;
+  }
+
+  // Recolour opaque pixels whose neighbour (dx, dy) * k, k = 1..width, is empty: cheap directional shading.
+  edge(dx, dy, width, color, test = null) {
+    const src = this.px.slice();
+    for (let y = 0; y < this.h; y++)
+      for (let x = 0; x < this.w; x++) {
+        const c = src[y * this.w + x];
+        if (!c || (test && !test(x, y, c))) continue;
+        for (let k = 1; k <= width; k++) {
+          const nx = x + dx * k, ny = y + dy * k;
+          if (!this.inb(nx, ny) || !src[ny * this.w + nx]) {
+            this.px[y * this.w + x] = typeof color === 'function' ? color(x, y, c) : color;
+            break;
+          }
+        }
+      }
+    return this;
+  }
+
+  // Recolour opaque pixels within `width` of the shape's border (trims, hems).
+  rim(width, color, test = null) {
+    const src = this.px.slice();
+    const empty = (x, y) => !this.inb(x, y) || !src[y * this.w + x];
+    for (let y = 0; y < this.h; y++)
+      for (let x = 0; x < this.w; x++) {
+        const c = src[y * this.w + x];
+        if (!c || (test && !test(x, y, c))) continue;
+        let hit = false;
+        for (let j = -width; j <= width && !hit; j++)
+          for (let i = -width; i <= width && !hit; i++) if (Math.abs(i) + Math.abs(j) <= width && empty(x + i, y + j)) hit = true;
+        if (hit) this.px[y * this.w + x] = typeof color === 'function' ? color(x, y, c) : color;
+      }
+    return this;
+  }
+
+  // Keep only pixels that pass test (used to clip a layer to a region).
+  clip(test) {
+    for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) if (!test(x, y)) this.px[y * this.w + x] = null;
+    return this;
+  }
+
   // Recolour existing pixels that pass test(x, y, color).
   recolor(test, color) {
     for (let y = 0; y < this.h; y++)

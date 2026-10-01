@@ -1,165 +1,149 @@
-// Fire Mage sprite, drawn in code from the reference design:
-// blonde high ponytail, navy dress with a dark belt, navy boots, thick dark outline.
-// Each body part is outlined separately so overlaps get the inner lines the reference has.
+// Fire Mage: an original witch design, side view facing right. Big crooked hat with a gold band,
+// dark hair with long side locks, crimson dress with gold zigzag hems, cape, fingerless gloves, boots.
 
-import { Raster, shade3 } from './raster.js';
+import { Sprite, celShade, profileHead, boot, W, H } from './chibi.js';
 
-export const MAGE_W = 48;
-export const MAGE_H = 64;
+export const MAGE_W = W;
+export const MAGE_H = H;
 
-const OUT = '#1b1526';
-const HAIR = { hi: '#fff3c9', light: '#f8dd98', mid: '#ecc173', dark: '#cf955a' };
-const SKIN = { light: '#fde4cf', mid: '#f5c7a3', dark: '#de9a7b' };
-const DRESS = { light: '#5d67ad', mid: '#444b8d', dark: '#2f346c' };
-const BELT = { mid: '#221f38', hi: '#3a3660' };
-const BOOT = { light: '#4a4880', mid: '#302e56', dark: '#211f3d' };
-const EYE = { iris: '#3e66cc', dark: '#22305e', shine: '#a9c6ff' };
-const BLUSH = '#f0a38c';
+const SKIN = { light: '#ffeadb', mid: '#fcd4be', shade: '#eaa48e', line: '#b4685f' };
+const HAIR = { light: '#7d5244', mid: '#5a3a32', shade: '#3e2723', shine: '#a06e58', line: '#24151a' };
+const DRESS = { light: '#e4585e', mid: '#c33a46', shade: '#8e2434', line: '#561424' };
+const GOLD = { light: '#ffe390', mid: '#f0b63c', shade: '#c27f28' };
+const CAPE = { light: '#7c4756', mid: '#5c3341', shade: '#40222f', line: '#26101a' };
+const LINING = { shade: '#6e2430' };
+const HAT = { light: '#7a4a50', mid: '#583239', shade: '#3c2028', line: '#24101a' };
+const STOCK = { light: '#4b4158', mid: '#2f2939', shade: '#1f1b27', line: '#120e18' };
+const BOOT = { light: '#e48c52', mid: '#c4683b', dark: '#8a4227' };
+const BOOT_FAR = { light: '#c4683b', mid: '#a5552f', dark: '#743621' };
+const CUFF = { light: '#f4ad6a', mid: '#dc8749' };
+const GLOVE = { mid: '#2c2535', light: '#463d55' };
 
-function bez(p0, p1, p2, p3, t) {
-  const u = 1 - t;
-  return [
-    u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0],
-    u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1],
-  ];
-}
-
-const ARMS = {
-  down: [[34, 32], [35, 37]],
-  forward: [[37.5, 29], [42, 28.5]],
-  up: [[37, 24.5], [40, 19]],
-  back: [[31, 32], [29, 36]],
+// near = the casting arm in front of the body; far = the arm behind it
+const POSES = {
+  idle: { near: [[50, 62], [52, 70], [53, 78]], far: [[45, 62], [42, 70], [40, 77]], nearHand: 'fist' },
+  cast0: { near: [[50, 62], [55, 69], [60, 66]], far: [[45, 62], [41, 68], [38, 74]], nearHand: 'open', mouth: 'open' },
+  cast1: { near: [[50, 61], [59, 58], [68, 53]], far: [[45, 62], [40, 67], [36, 71]], nearHand: 'open', mouth: 'open', glow: true },
+  attack: { near: [[50, 62], [60, 62], [69, 61]], far: [[45, 62], [41, 69], [38, 75]], nearHand: 'open', glow: true },
+  hit: { near: [[49, 62], [46, 70], [44, 76]], far: [[44, 62], [40, 69], [38, 74]], nearHand: 'fist', eye: 'shut', mouth: 'grit', lean: -2 },
 };
 
-export function drawMage({ b = 0, sway = 0, arm = 'down', eye = 'open', lean = 0, glow = false } = {}) {
-  const out = new Raster(MAGE_W, MAGE_H);
-  const L = lean;
-
-  // ---- ponytail (behind everything)
-  const pony = out.layer();
-  const P = [[22 + L, 8 + b], [12 + L, 3 + b + sway * 0.5], [6 + L + sway, 15 + b], [9 + L + sway * 2, 33 + b]];
-  const pts = [];
-  for (let i = 0; i <= 48; i++) {
-    const t = i / 48;
-    const [x, y] = bez(...P, t);
-    const r = 1.5 + 3.6 * Math.sin(Math.PI * (0.12 + 0.78 * t)) * (1 - 0.55 * t);
-    pts.push({ x, y, r, t });
+function arm(sp, pts, hand, tone = DRESS) {
+  const a = sp.layer();
+  const [s, e, w] = pts;
+  a.capsule(s[0], s[1], e[0], e[1], 3.6, tone.mid);
+  a.capsule(e[0], e[1], w[0], w[1], 3.2, tone.mid);
+  celShade(a, { shadow: tone.shade, light: tone.light, shadowW: 2 });
+  const dx = w[0] - e[0], dy = w[1] - e[1];
+  const L = Math.hypot(dx, dy) || 1;
+  a.ellipseR(w[0] - (dx / L) * 2.5, w[1] - (dy / L) * 2.5, 2.2, 4.6, Math.atan2(dy, dx), (nx) => (nx < 0 ? GOLD.shade : GOLD.mid));
+  sp.add(a, DRESS.line);
+  const h = sp.layer();
+  const hx = w[0] + (dx / L) * 2, hy = w[1] + (dy / L) * 2;
+  h.ellipse(hx, hy, 2.3, 2.3, GLOVE.mid);
+  if (hand === 'open') {
+    for (let k = -1; k <= 1; k++) {
+      const ang = Math.atan2(dy, dx) + k * 0.45;
+      h.capsule(hx, hy, hx + Math.cos(ang) * 4.5, hy + Math.sin(ang) * 4.5, 0.9, SKIN.mid);
+    }
   }
-  for (const p of pts) pony.ellipse(p.x - 0.7, p.y + 0.7, p.r, p.r, HAIR.dark);
-  for (const p of pts) if (p.r > 1.3) pony.ellipse(p.x + 0.3, p.y - 0.3, p.r - 0.9, p.r - 0.9, HAIR.mid);
-  for (const p of pts) if (p.t > 0.04 && p.t < 0.72 && p.r > 2.6) pony.ellipse(p.x + 1, p.y - 1, p.r - 2.6, p.r - 2.6, HAIR.light);
-  for (const p of pts) if (p.t > 0.12 && p.t < 0.42) pony.set(Math.floor(p.x + p.r * 0.2), Math.floor(p.y - p.r * 0.75), HAIR.hi);
-  pony.outline(OUT);
-  out.over(pony);
+  h.recolor((x, y, c) => c === GLOVE.mid && y < hy - 0.5, GLOVE.light);
+  sp.add(h, '#120e18');
+  return [hx, hy];
+}
 
-  // ---- back arm
-  const bArm = out.layer();
-  bArm.capsule(30 + L, 27 + b, 27 + L, 35.5 + b, 1.7, SKIN.dark);
-  bArm.ellipse(27 + L, 36 + b, 1.8, 1.8, SKIN.dark);
-  bArm.outline(OUT);
-  out.over(bArm);
+export function drawMage(pose = 'idle', { b = 0, sway = 0, eye: eyeOverride } = {}) {
+  const P = POSES[pose];
+  const sp = new Sprite();
+  const L = P.lean || 0;
+  const eye = eyeOverride || P.eye || 'open';
+  const at = (pts) => pts.map(([x, y]) => [x + L, y + b]);
 
-  // ---- legs and boots
-  const leg = (x1, x2, footX, skin, tone) => {
-    const l = out.layer();
-    l.capsule(x1, 45, x2, 53, 1.8, skin);
-    l.poly([[x2 - 3, 52], [x2 + 2, 52], [x2 + 2, 59], [x2 - 3, 59]], (nx) => (nx < -0.45 ? tone.dark : tone.mid));
-    l.ellipse(footX + 0.6, 60.2, 4.4, 2.3, (nx, ny) => (ny > 0.55 ? tone.dark : nx > 0.2 && ny < 0 ? tone.light : tone.mid));
-    l.recolor((x, y) => y === 52, tone.light);
-    l.outline(OUT);
-    out.over(l);
-  };
-  leg(29, 28.5, 29.5, SKIN.dark, { light: BOOT.mid, mid: BOOT.dark, dark: '#17152b' });
-  leg(34, 35, 36.5, SKIN.mid, BOOT);
+  // ---- cape streaming behind
+  const cape = sp.layer();
+  cape.poly([[52 + L, 58 + b], [42 + L, 58 + b], [32 + L, 68 + b], [22 + sway * 2, 94], [16 + sway * 2, 112], [30 + sway, 110], [40, 112], [52, 104], [56 + L, 80 + b]], CAPE.mid);
+  celShade(cape, { shadow: CAPE.shade, light: CAPE.light, shadowW: 4 });
+  cape.recolor((x, y) => y > 100 && x > 34 && x < 52, LINING.shade);
+  cape.rim(1, GOLD.mid, (x, y) => y > 66);
+  cape.recolor((x, y, c) => c === GOLD.mid && x < 30, GOLD.shade);
+  sp.add(cape, CAPE.line);
 
-  // ---- dress
-  const body = out.layer();
-  const dressShade = shade3([DRESS.light, DRESS.mid, DRESS.dark], 0.35, -0.3, 0.8, -0.6);
-  body.poly([[28.5, 25 + b], [36.5, 25 + b], [37.5, 34 + b], [27.5, 34 + b]], dressShade);
-  body.poly([[27.5, 34 + b], [37.5, 34 + b], [41, 46 + b], [24, 46 + b]], dressShade);
-  // skirt folds
-  body.recolor((x, y) => (x === 30 || x === 34) && y >= 38 + b && y <= 44 + b, (x, y, c) => (c === DRESS.light ? DRESS.mid : DRESS.dark));
-  body.recolor((x, y) => y === 45 + b && x % 3 === 0, DRESS.dark);
-  // belt
-  body.recolor((x, y) => y === 33 + b || y === 34 + b, (x, y) => (y === 33 + b && x > 31 ? BELT.hi : BELT.mid));
-  // neck and collar
-  body.rect(31 + L, 23 + b, 3, 3, SKIN.dark);
-  body.set(32 + L, 25 + b, SKIN.mid);
-  body.outline(OUT);
-  out.over(body);
+  // ---- long lock falling down the back
+  const back = sp.layer();
+  back.tube([37 + L, 42 + b], [34 + L, 52 + b], [35 + L, 62 + b], [38 + L, 70 + b], (t) => 4 - t * 2.2, HAIR.mid);
+  celShade(back, { shadow: HAIR.shade, light: HAIR.light, shadowW: 2 });
+  sp.add(back, HAIR.line);
+
+  // ---- far arm, behind the body (slightly darker)
+  arm(sp, at(P.far), 'fist', { light: DRESS.mid, mid: DRESS.shade, shade: '#6e1a2a' });
+
+  // ---- legs and boots: far leg first, darker
+  for (const [x1, x2, xb, tone, bt] of [[45, 44, 40, { light: STOCK.mid, mid: STOCK.shade }, BOOT_FAR], [51, 52, 49, STOCK, BOOT]]) {
+    const leg = sp.layer();
+    leg.capsule(x1, 95, x2, 108, 3.3, tone.mid);
+    celShade(leg, { shadow: STOCK.shade, light: tone.light, shadowW: 1 });
+    sp.add(leg, STOCK.line);
+    const bl = sp.layer();
+    boot(bl, xb, 106, bt, { cuff: CUFF, toe: 4, w: 6 });
+    sp.add(bl, '#5a2616');
+  }
+
+  // ---- dress, side-on
+  const dress = sp.layer();
+  dress.ellipse(48 + L, 63 + b, 5.5, 4.5, DRESS.mid);
+  dress.poly([[42.5 + L, 61 + b], [54 + L, 61 + b], [56 + L, 68 + b], [54.5 + L, 78 + b], [43 + L, 78 + b], [42 + L, 70 + b]], DRESS.mid);
+  dress.poly([[42 + L, 77 + b], [55 + L, 77 + b], [62, 97], [59, 98], [37, 98], [34, 97]], DRESS.mid);
+  celShade(dress, { shadow: DRESS.shade, light: DRESS.light, shadowW: 3 });
+  dress.recolor((x, y) => y > 84 && (x === 41 || x === 50) && (y + x) % 7 !== 0, DRESS.shade);
+  dress.recolor((x, y) => y >= 93, (x, y) => (y === 93 ? GOLD.light : (x + y) % 4 === 0 || (x - y + 64) % 4 === 0 ? DRESS.shade : GOLD.mid));
+  dress.recolor((x, y) => y >= 61 + b && y <= 66 + b && x >= 52 + L && x <= 54 + L, (x, y) => ((x + y) % 2 ? GOLD.light : DRESS.light));
+  dress.recolor((x, y) => y >= 76 + b && y <= 79 + b && x > 40 && x < 58, (x, y) => (y === 76 + b ? '#463a50' : '#272030'));
+  dress.rect(51 + L, 75 + b, 5, 6, (x, y) => (x === 51 + L || x === 55 + L || y === 75 + b || y === 80 + b ? '#dcdce6' : '#272030'));
+  sp.add(dress, DRESS.line);
+
+  const neck = sp.layer();
+  neck.rect(46 + L, 52 + b, 6, 9, SKIN.shade);
+  neck.rect(46 + L, 57 + b, 6, 2, '#2a2230'); // choker
+  neck.set(51 + L, 58 + b, GOLD.mid);
+  sp.add(neck, SKIN.line);
 
   // ---- head
-  const head = out.layer();
-  head.ellipse(32 + L, 17 + b, 6.6, 7, shade3([SKIN.light, SKIN.light, SKIN.mid], 0, -0.45));
-  head.set(39 + L, 18 + b, SKIN.light); // nose
-  const hx = 29 + L;
-  const hy = 13 + b;
-  const bang = (x) => 12.5 + b + (Math.floor(x) % 3 === 0 ? 1.2 : 0) + (x > 36 + L ? 1.5 : 0);
-  const inHair = (x, y) =>
-    (((x - hx) / 9.5) ** 2 + ((y - hy) / 8) ** 2 <= 1 || ((x - (25.5 + L)) / 5.5) ** 2 + ((y - (17 + b)) / 6.5) ** 2 <= 1) &&
-    !(x > 31 + L && y > bang(x));
-  const hairShade = shade3([HAIR.light, HAIR.mid, HAIR.dark], 0.25, -0.35);
-  head.shape(inHair, (x, y) => {
-    const nx = (x - hx) / 9.5;
-    const ny = (y - hy) / 8;
-    if (ny > -0.74 && ny < -0.5 && nx > -0.5 && nx < 0.6 && Math.floor(x) % 4 !== 0) return HAIR.hi;
-    return hairShade(nx, ny);
-  });
-  // hair tie
-  head.ellipse(22.5 + L, 8.5 + b, 1.7, 2, DRESS.mid);
-  head.set(23 + L, 7 + b, DRESS.light);
-  // face details
-  const ex = 35 + L;
-  const ey = 16 + b;
-  if (eye === 'open') {
-    head.rect(ex - 1, ey, 3, 1, EYE.dark);
-    head.rect(ex, ey + 1, 2, 2, EYE.iris);
-    head.set(ex + 1, ey + 1, EYE.shine);
-    head.set(ex, ey + 2, EYE.dark);
-  } else if (eye === 'blink') {
-    head.rect(ex - 1, ey + 2, 3, 1, EYE.dark);
-  } else {
-    head.set(ex, ey, EYE.dark);
-    head.set(ex + 1, ey + 1, EYE.dark);
-    head.set(ex, ey + 2, EYE.dark);
-  }
-  head.set(34 + L, 20 + b, BLUSH);
-  head.set(35 + L, 20 + b, BLUSH);
-  head.set(37 + L, 21 + b, SKIN.dark);
-  head.outline(OUT);
-  out.over(head);
+  const head = profileHead(sp, SKIN, HAIR, { ox: L, oy: b, eye, mouth: P.mouth || 'smile', iris: '#e0414b', irisDark: '#8a1c2c', irisLight: '#ff9d8c' });
+  sp.add(head, HAIR.line);
 
-  // ---- front arm with puff sleeve
-  const fArm = out.layer();
-  const [E, H] = ARMS[arm];
-  const sx = 33 + L, sy = 27 + b;
-  fArm.capsule(sx, sy, E[0] + L, E[1] + b, 1.6, SKIN.mid);
-  fArm.capsule(E[0] + L, E[1] + b, H[0] + L, H[1] + b, 1.5, SKIN.mid);
-  fArm.ellipse(H[0] + L, H[1] + b, 1.9, 1.9, SKIN.light);
-  fArm.ellipse(sx, sy + 0.5, 3.2, 2.6, shade3([DRESS.light, DRESS.mid, DRESS.dark], 0.2, -0.4));
-  fArm.outline(OUT);
-  out.over(fArm);
+  // ---- casting arm in front
+  const hand = arm(sp, at(P.near), P.nearHand);
 
-  if (glow) {
-    out.ellipse(H[0] + L, H[1] + b, 2.6, 2.6, '#ffb347');
-    out.ellipse(H[0] + L, H[1] + b, 1.6, 1.6, '#ffe7a3');
-    out.set(Math.floor(H[0] + L), Math.floor(H[1] + b), '#ffffff');
+  // ---- hat
+  const hat = sp.layer();
+  const hx = L - 2, hy = b;
+  hat.poly([[32 + hx, 26 + hy], [61 + hx, 22 + hy], [55 + hx, 12 + hy], [48 + hx, 6 + hy], [41 + hx, 5 + hy], [38 + hx, 12 + hy]], HAT.mid);
+  hat.tube([43 + hx, 8 + hy], [36 + hx, 2 + hy], [28 + hx + sway, 3 + hy], [24 + hx + sway, 10 + hy], (t) => 3.2 - t * 1.8, HAT.mid, 30);
+  celShade(hat, { shadow: HAT.shade, light: HAT.light, shadowW: 3 });
+  hat.recolor((x, y) => y >= 17 + hy && y <= 22 + hy - (x - 32 - hx) * 0.12, (x, y) => ((x + y) % 5 === 0 || (x - y + 100) % 5 === 0) && y > 17 + hy && y < 21 + hy ? DRESS.mid : y === 17 + hy ? GOLD.light : GOLD.mid);
+  hat.ellipseR(47 + hx, 27 + hy, 26, 6, -0.14, (nx, ny) => (ny < -0.2 ? HAT.light : ny > 0.4 ? HAT.shade : HAT.mid));
+  hat.ellipse(54 + hx, 19 + hy, 2.4, 2.4, GOLD.shade);
+  hat.set(54 + hx, 18 + hy, '#ff7a2f');
+  hat.set(54 + hx, 19 + hy, '#ffd166');
+  hat.ellipse(23.5 + hx + sway, 12 + hy, 2, 2.6, GOLD.mid);
+  sp.add(hat, HAT.line);
+
+  const out = sp.finish();
+  if (P.glow) {
+    out.ellipse(hand[0] + 2, hand[1], 4, 4, '#ff9a3c');
+    out.ellipse(hand[0] + 2, hand[1], 2.6, 2.6, '#ffd36b');
+    out.ellipse(hand[0] + 2, hand[1], 1.2, 1.2, '#fff6dc');
   }
+  out.meta = { hand };
   return out;
 }
 
-// The hand position per frame, in sprite pixels from the top-left. Used to launch spell FX.
-export function handPos(arm, b = 0) {
-  const [, H] = ARMS[arm];
-  return [H[0], H[1] + b];
-}
-
 export const MAGE_FRAMES = {
-  idle0: { b: 0, sway: 0 },
-  idle1: { b: 1, sway: 1 },
-  blink: { b: 0, sway: 0, eye: 'blink' },
-  cast0: { b: 0, sway: -1, arm: 'forward' },
-  cast1: { b: 0, sway: -1, arm: 'up', glow: true },
-  attack: { b: 0, sway: 0, arm: 'forward', glow: true },
-  hit: { b: 0, sway: 2, eye: 'shut', arm: 'back', lean: -1 },
+  idle0: ['idle', { b: 0, sway: 0 }],
+  idle1: ['idle', { b: 1, sway: 1 }],
+  blink: ['idle', { b: 0, sway: 0, eye: 'blink' }],
+  cast0: ['cast0', { sway: -1 }],
+  cast1: ['cast1', { sway: -2 }],
+  attack: ['attack', { sway: -1 }],
+  hit: ['hit', { sway: 2 }],
 };

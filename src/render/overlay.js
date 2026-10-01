@@ -4,6 +4,7 @@ export class Overlay {
   constructor(el) {
     this.el = el;
     this.units = new Map();
+    this.onPick = () => {};
     this.bannerEl = document.createElement('div');
     this.bannerEl.className = 'banner';
     this.bannerEl.hidden = true;
@@ -11,7 +12,7 @@ export class Overlay {
   }
 
   clear() {
-    for (const u of this.units.values()) u.root.remove();
+    for (const u of this.units.values()) { u.root.remove(); u.hit.remove(); }
     this.units.clear();
     this.el.querySelectorAll('.num').forEach((n) => n.remove());
     this.bannerEl.hidden = true;
@@ -22,27 +23,45 @@ export class Overlay {
     if (u) return u;
     const root = document.createElement('div');
     root.className = `ov-unit ov-${side}`;
-    root.innerHTML = `<div class="cast-label"></div><div class="mini"><i class="mini-hp"></i><i class="mini-block"></i></div>`;
+    root.innerHTML = `<div class="cast-label"></div><div class="wait-pill" hidden></div><div class="mini"><i class="mini-hp"></i><i class="mini-block"></i></div>`;
     this.el.appendChild(root);
+    const hit = document.createElement('button');
+    hit.className = 'ov-hit';
+    hit.setAttribute('aria-label', 'Select unit');
+    hit.addEventListener('click', () => this.onPick(id));
+    this.el.appendChild(hit);
     u = {
       root,
       label: root.querySelector('.cast-label'),
       hp: root.querySelector('.mini-hp'),
       block: root.querySelector('.mini-block'),
       mini: root.querySelector('.mini'),
+      wait: root.querySelector('.wait-pill'),
+      hit,
     };
     this.units.set(id, u);
     return u;
   }
 
-  place(id, side, x, y, unit) {
+  place(id, side, x, y, unit, box) {
     const u = this.ensure(id, side);
+    if (box) {
+      const h = box.bottom - box.top;
+      Object.assign(u.hit.style, { left: `${Math.round(box.x - box.w / 2)}px`, top: `${Math.round(box.top)}px`, width: `${Math.round(box.w)}px`, height: `${Math.round(h)}px` });
+    }
     u.root.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`;
     const hp = Math.max(0, unit.hp / unit.maxHp);
     u.hp.style.width = `${hp * 100}%`;
     u.block.style.width = `${Math.min(1, unit.s.block / unit.maxHp) * 100}%`;
     u.root.classList.toggle('is-dead', !unit.alive);
     u.mini.classList.toggle('is-low', hp < 0.3);
+  }
+
+  waiting(id, on, text = 'Waiting') {
+    const u = this.units.get(id);
+    if (!u) return;
+    u.wait.hidden = !on;
+    if (on) u.wait.textContent = text;
   }
 
   castLabel(id, html, tone = '') {
